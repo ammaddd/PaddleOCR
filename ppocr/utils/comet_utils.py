@@ -2,6 +2,7 @@ import logging
 import functools
 try:
     import comet_ml
+    comet_ml.init()
     comet_installed = True
 except:
     comet_installed = False
@@ -25,6 +26,7 @@ class CometLogger:
             if self._logging is None and comet_installed:
                 self._logging = False
                 try:
+                    comet_ml.init()
                     if comet_ml.get_global_experiment() is not None:
                         logging.warning("You have already created a comet \
                                         experiment manually, which might \
