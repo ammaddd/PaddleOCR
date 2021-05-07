@@ -46,8 +46,8 @@ class CometLogger:
 
     @_requiresComet
     def log_asset_data(self, data, name=None, overwrite=False,
-                        step=None, metadata=None, file_name=None,
-                        epoch=None):
+                       step=None, metadata=None, file_name=None,
+                       epoch=None):
         """Logs the data given (str, binary, or JSON).
 
         Args:
