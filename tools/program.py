@@ -150,7 +150,8 @@ def train(config,
           eval_class,
           pre_best_model_dict,
           logger,
-          vdl_writer=None):
+          vdl_writer=None,
+          comet_logger=None):
     cal_metric_during_train = config['Global'].get('cal_metric_during_train',
                                                    False)
     log_smooth_window = config['Global']['log_smooth_window']
@@ -202,6 +203,11 @@ def train(config,
                 break
             lr = optimizer.get_lr()
             images = batch[0]
+            if idx % 300 == 0:
+                comet_logger.log_image(images[0].detach().cpu().numpy()[::-1, :, :],
+                                       name='train_images',
+                                       image_channels="first",
+                                       step=global_step)
             if use_srn:
                 others = batch[-4:]
                 preds = model(images, others)
@@ -231,6 +237,12 @@ def train(config,
                 eval_class(post_result, batch)
                 metric = eval_class.get_metric()
                 train_stats.update(metric)
+
+            for k, v in train_stats.get().items():
+                comet_logger.log_metric('TRAIN/{}'.format(k), v,
+                                        step=global_step, epoch=epoch)
+            comet_logger.log_metric('TRAIN/lr', lr, step=global_step,
+                                    epoch=epoch)    
 
             if vdl_writer is not None and dist.get_rank() == 0:
                 for k, v in train_stats.get().items():
@@ -274,6 +286,10 @@ def train(config,
                         if isinstance(v, (float, int)):
                             vdl_writer.add_scalar('EVAL/{}'.format(k),
                                                   cur_metric[k], global_step)
+                            comet_logger.log_metric('EVAL/{}'.format(k),
+                                                    cur_metric[k],
+                                                    step=global_step,
+                                                    epoch=epoch)
                 if cur_metric[main_indicator] >= best_model_dict[
                         main_indicator]:
                     best_model_dict.update(cur_metric)
@@ -287,6 +303,7 @@ def train(config,
                         prefix='best_accuracy',
                         best_model_dict=best_model_dict,
                         epoch=epoch)
+                    comet_logger.log_model("PaddleOCR", save_model_dir)
                 best_str = 'best metric, {}'.format(', '.join([
                     '{}: {}'.format(k, v) for k, v in best_model_dict.items()
                 ]))
@@ -296,6 +313,9 @@ def train(config,
                     vdl_writer.add_scalar('EVAL/best_{}'.format(main_indicator),
                                           best_model_dict[main_indicator],
                                           global_step)
+                    comet_logger.log_metric('EVAL/best_{}'.format(main_indicator),
+                                            best_model_dict[main_indicator],
+                                            step=global_step, epoch=epoch)
             global_step += 1
             optimizer.clear_grad()
             batch_start = time.time()
@@ -309,6 +329,7 @@ def train(config,
                 prefix='latest',
                 best_model_dict=best_model_dict,
                 epoch=epoch)
+            comet_logger.log_model("PaddleOCR", save_model_dir)
         if dist.get_rank() == 0 and epoch > 0 and epoch % save_epoch_step == 0:
             save_model(
                 model,
@@ -319,6 +340,7 @@ def train(config,
                 prefix='iter_epoch_{}'.format(epoch),
                 best_model_dict=best_model_dict,
                 epoch=epoch)
+            comet_logger.log_model("PaddleOCR", save_model_dir)
     best_str = 'best metric, {}'.format(', '.join(
         ['{}: {}'.format(k, v) for k, v in best_model_dict.items()]))
     logger.info(best_str)

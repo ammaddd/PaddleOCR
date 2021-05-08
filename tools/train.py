@@ -16,6 +16,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from ppocr.utils.comet_utils import CometLogger
 import os
 import sys
 
@@ -43,6 +44,10 @@ dist.get_world_size()
 
 def main(config, device, logger, vdl_writer):
     # init dist environment
+    comet_logger = CometLogger(True, auto_metric_logging=False)
+    comet_logger.log_asset_data(dict(config), 'config.yaml')
+    comet_logger.log_code("./tools/program.py")
+
     if config['Global']['distributed']:
         dist.init_parallel_env()
 
@@ -94,7 +99,8 @@ def main(config, device, logger, vdl_writer):
     # start train
     program.train(config, train_dataloader, valid_dataloader, device, model,
                   loss_class, optimizer, lr_scheduler, post_process_class,
-                  eval_class, pre_best_model_dict, logger, vdl_writer)
+                  eval_class, pre_best_model_dict, logger, vdl_writer,
+                  comet_logger)
 
 
 def test_reader(config, device, logger):
